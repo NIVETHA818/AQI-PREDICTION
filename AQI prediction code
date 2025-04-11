@@ -1,0 +1,60 @@
+import pandas as pd
+import numpy as np
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.preprocessing import LabelEncoder, MinMaxScaler
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_squared_error, r2_score
+
+# Load the dataset
+df = pd.read_csv("C:/Users/saran/Downloads/merged_aqi_with_location.csv")
+
+# Convert date column to datetime if present
+if 'date' in df.columns:
+    df['date'] = pd.to_datetime(df['date'])
+    df['month'] = df['date'].dt.month  # Extract month for seasonality consideration
+    df['year'] = df['date'].dt.year  # Extract year
+
+# Encode categorical variables if needed
+if 'city' in df.columns:
+    le_city = LabelEncoder()
+    df['city'] = le_city.fit_transform(df['city'])
+
+# Handle missing values
+df.fillna(df.mean(), inplace=True)
+
+# Define feature set and target variable
+X = df[['city', 'latitude', 'longitude', 'month', 'year']]  # Features
+y = df['AQI']  # Target variable
+
+# Train-test split
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Scale features
+scaler = MinMaxScaler()
+X_train = scaler.fit_transform(X_train)
+X_test = scaler.transform(X_test)
+
+# Train model
+model = RandomForestRegressor(n_estimators=100, random_state=42)
+model.fit(X_train, y_train)
+
+# Predictions
+y_pred = model.predict(X_test)
+
+# Evaluation
+print(f"Mean Squared Error: {mean_squared_error(y_test, y_pred)}")
+print(f"R2 Score: {r2_score(y_test, y_pred)}")
+
+# Function to predict AQI for a given city and date
+def predict_aqi(city_name, month, year):
+    city_encoded = le_city.transform([city_name])[0]
+    input_data = np.array([[city_encoded, df[df['city'] == city_encoded]['latitude'].values[0],
+                             df[df['city'] == city_encoded]['longitude'].values[0], month, year]])
+    input_data = scaler.transform(input_data)
+    predicted_aqi = model.predict(input_data)[0]
+    print(f"Predicted AQI for {city_name} in {month}/{year}: {predicted_aqi:.2f}")
+
+# Example usage
+predict_aqi("Delhi", 5, 2025)
+
+
